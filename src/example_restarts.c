@@ -46,7 +46,7 @@ extern double cmaes_random_Gauss( cmaes_random_t *); /* (0,1)-normally distribut
 #if defined(_USE_TORC_)
 double (*gpFun)(double const *); /* global pointer to objective function */
 
-void taskfun(double *x, double *res)
+void taskfun(double *x, int *pdim, double *res)
 {
 	double f = (*gpFun)(x+1);
 

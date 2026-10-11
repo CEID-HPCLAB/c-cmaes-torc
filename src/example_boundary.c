@@ -90,7 +90,7 @@ int main(int argn, char **args) {
 #if defined(_USE_TORC_)
         torc_create(-1, taskfun, 3,
                     dimension, MPI_DOUBLE, CALL_BY_COP,   // firstprivate because x_in_bounds is reused
-                    1, MPI_INT, CALL_BY_COP,
+                    1, MPI_UNSIGNED_LONG, CALL_BY_COP,
                     1, MPI_DOUBLE, CALL_BY_RES,
                     x_in_bounds, &dimension, &arFunvals[i]);
 #else

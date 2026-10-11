@@ -21,15 +21,15 @@ int is_feasible(double const *, unsigned long len);
 double fitfun(double const *x, unsigned long N) { /* function "cigtab" */
   unsigned i;
   double sum = 1e4*x[0]*x[0] + 1e-4*x[1]*x[1];
-  for(i = 2; i < N; ++i)  
+  for(i = 2; i < N; ++i)
     sum += x[i]*x[i];
   return sum;
 }
 
 #if defined(_USE_TORC_)
-void taskfun(double *x, int *pn, double *res)
+void taskfun(double *x, unsigned long *pn, double *res)
 {
-    int n = *pn;
+    unsigned long n = *pn;
     double f = fitfun(x, n);
 
     *res = f;

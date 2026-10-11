@@ -4,6 +4,12 @@
 #include <stdlib.h>
 #include <stddef.h> /* NULL */
 #include "cmaes_interface.h"
+
+#if defined(_USE_TORC_)
+#include <mpi.h>
+#include <torc.h>
+#endif
+
 /*___________________________________________________________________________
  *
  * Function Declarations
@@ -37,6 +43,18 @@ extern void   cmaes_random_init( cmaes_random_t *, long unsigned seed /*=0=clock
 extern void   cmaes_random_exit( cmaes_random_t *);
 extern double cmaes_random_Gauss( cmaes_random_t *); /* (0,1)-normally distributed */
 
+#if defined(_USE_TORC_)
+double (*gpFun)(double const *); /* global pointer to objective function */
+
+void taskfun(double *x, double *res)
+{
+	double f = (*gpFun)(x+1);
+
+	*res = f;
+	return;
+}
+#endif
+
 /*___________________________________________________________________________
 //___________________________________________________________________________
 //
@@ -57,6 +75,8 @@ int main(int argn, char **args)
 
     if(argn > 1) /* avoid compiler warning */
         printf("%d argument(s)  %s ... unused\n", argn - 1, args[1]);
+
+
 
 	/* Put together objective functions */
 	rgpFun[0] = f_sphere;
@@ -96,6 +116,13 @@ int main(int argn, char **args)
 	} else
 		printf("main(): could not open %s to read function number", filename);
 
+
+#if defined(_USE_TORC_)
+	gpFun = rgpFun[nb];
+	torc_register_task(taskfun);
+  	torc_init(argn, args, MODE_MS);
+#endif
+
 	/* Optimize function */
 
 	x = optimize(rgpFun[nb], nbrestarts, incpopsize, filename);
@@ -103,6 +130,10 @@ int main(int argn, char **args)
 	/* here we could utilize the solution x, and finally free memory */
 
 	free(x);
+
+#if defined(_USE_TORC_)
+	torc_finalize();
+#endif
 
 	return 0;
 
@@ -166,10 +197,25 @@ double * optimize(double(*pFun)(double const *), int nrestarts, double incpopsiz
                sufficiently small to prevent quasi-infinite looping.
 				 */
 				/* while (!is_feasible(pop[i]))
-	         cmaes_ReSampleSingle(&evo, i); 
+	         		cmaes_ReSampleSingle(&evo, i); 
 				 */
+#if defined(_USE_TORC_)
+		        int dim = (int) cmaes_Get(&evo, "dim");
+				double *p = pop[i] - 1;
+    		    torc_create(-1, taskfun, 3,
+        		            dim+1, MPI_DOUBLE, CALL_BY_VAL,
+            		        1, MPI_INT, CALL_BY_COP,
+                		    1, MPI_DOUBLE, CALL_BY_RES,
+                    		p, &dim, &fitvals[i]);
+#else
 				fitvals[i] = (*pFun)(pop[i]);
+#endif
+
 			}
+
+#if defined(_USE_TORC_)
+			torc_waitall();
+#endif
 
 			/* update search distribution */
 			cmaes_UpdateDistribution(&evo, fitvals);

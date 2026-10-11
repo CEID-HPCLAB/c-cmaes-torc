@@ -7,25 +7,48 @@
 #include <stddef.h> /* NULL */
 #include "cmaes_interface.h"
 
-double fitfun(double const *x, int dim); 
+#if defined(_USE_TORC_)
+#include <mpi.h>
+#include <torc.h>
+#endif
+
+double fitfun(double const *x, int dim);
 
 /* the objective (fitness) function to be minimized */
 double fitfun(double const *x, int N) { /* function "cigtab" */
-  int i; 
+  int i;
   double sum = 1e4*x[0]*x[0] + 1e-4*x[1]*x[1];
-  for(i = 2; i < N; ++i)  
-    sum += x[i]*x[i]; 
+  for(i = 2; i < N; ++i)
+    sum += x[i]*x[i];
   return sum;
 }
+
+
+#if defined(_USE_TORC_)
+void taskfun(double *x, int *pn, double *res)
+{
+    int n = *pn;
+    double f = fitfun(x, n);
+
+    *res = f;
+    return;
+}
+#endif
+
 
 /* the optimization loop */
 int main(int argn, char **args) {
   cmaes_t evo; /* an CMA-ES type struct or "object" */
   double *arFunvals, *const*pop, *xfinal;
-  int i; 
+  int i;
 
   if(argn > 1) /* avoid compiler warning */
     printf("%d argument(s)  %s ... unused\n", argn - 1, args[1]);
+
+#if defined(_USE_TORC_)
+  torc_register_task(taskfun);
+  torc_init(argn, args, MODE_MS);
+#endif
 
   /* Initialize everything into the struct evo, 0 means default */
   arFunvals = cmaes_init(&evo, 0, NULL, NULL, 0, 0, "cmaes_initials.par");
@@ -34,7 +57,7 @@ int main(int argn, char **args) {
 
   /* Iterate until stop criterion holds */
   while(!cmaes_TestForTermination(&evo))
-    { 
+    {
       /* generate lambda new search points, sample population */
       pop = cmaes_SamplePopulation(&evo); /* do not change content of pop */
 
@@ -52,13 +75,26 @@ int main(int argn, char **args) {
 
       /* evaluate the new search points using fitfun */
       for (i = 0; i < cmaes_Get(&evo, "lambda"); ++i) {
+#if defined(_USE_TORC_)
+        int dim = (int) cmaes_Get(&evo, "dim");
+        torc_create(-1, taskfun, 3,
+                    dim, MPI_DOUBLE, CALL_BY_VAL,
+                    1, MPI_INT, CALL_BY_COP,
+                    1, MPI_DOUBLE, CALL_BY_RES,
+                    pop[i], &dim, &arFunvals[i]);
+#else
     	  arFunvals[i] = fitfun(pop[i], (int) cmaes_Get(&evo, "dim"));
+#endif
       }
 
-      /* update the search distribution used for cmaes_SamplePopulation() */
-      cmaes_UpdateDistribution(&evo, arFunvals);  
+#if defined(_USE_TORC_)
+      torc_waitall();
+#endif
 
-      /* read instructions for printing output or changing termination conditions */ 
+      /* update the search distribution used for cmaes_SamplePopulation() */
+      cmaes_UpdateDistribution(&evo, arFunvals);
+
+      /* read instructions for printing output or changing termination conditions */
       cmaes_ReadSignals(&evo, "cmaes_signals.par");
       fflush(stdout); /* useful in MinGW */
     }
@@ -67,10 +103,14 @@ int main(int argn, char **args) {
 
   /* get best estimator for the optimum, xmean */
   xfinal = cmaes_GetNew(&evo, "xmean"); /* "xbestever" might be used as well */
-  cmaes_exit(&evo); /* release memory */ 
+  cmaes_exit(&evo); /* release memory */
 
   /* do something with final solution and finally release memory */
-  free(xfinal); 
+  free(xfinal);
+
+#if defined(_USE_TORC_)
+  torc_finalize();
+#endif
 
   return 0;
 }

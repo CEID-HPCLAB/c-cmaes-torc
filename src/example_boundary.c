@@ -9,6 +9,11 @@
 #include "cmaes_interface.h"
 #include "boundary_transformation.h"
 
+#if defined(_USE_TORC_)
+#include <mpi.h>
+#include <torc.h>
+#endif
+
 double fitfun(double const *x, unsigned long dim);
 int is_feasible(double const *, unsigned long len);
 
@@ -17,9 +22,21 @@ double fitfun(double const *x, unsigned long N) { /* function "cigtab" */
   unsigned i;
   double sum = 1e4*x[0]*x[0] + 1e-4*x[1]*x[1];
   for(i = 2; i < N; ++i)  
-    sum += x[i]*x[i]; 
+    sum += x[i]*x[i];
   return sum;
 }
+
+#if defined(_USE_TORC_)
+void taskfun(double *x, int *pn, double *res)
+{
+    int n = *pn;
+    double f = fitfun(x, n);
+
+    *res = f;
+    return;
+}
+#endif
+
 int is_feasible(double const *x, unsigned long N) {
 	N = (long) x[0]; /* only to prevent compiler warning */
     return 1;
@@ -38,6 +55,11 @@ int main(int argn, char **args) {
 
   if(argn > 1) /* avoid compiler warning */
     printf("%d argument(s)  %s ... unused\n", argn - 1, args[1]);
+
+#if defined(_USE_TORC_)
+  torc_register_task(taskfun);
+  torc_init(argn, args, MODE_MS);
+#endif
 
   /* initialize boundaries, be sure that initialSigma is smaller than upper minus lower bound */
   cmaes_boundary_transformation_init(&boundaries, lowerBounds, upperBounds, nb_bounds);
@@ -64,8 +86,20 @@ int main(int argn, char **args) {
             cmaes_ReSampleSingle(&evo, i); 
             cmaes_boundary_transformation(&boundaries, pop[i], x_in_bounds, dimension);
         }
+
+#if defined(_USE_TORC_)
+        torc_create(-1, taskfun, 3,
+                    dimension, MPI_DOUBLE, CALL_BY_COP,   // firstprivate because x_in_bounds is reused
+                    1, MPI_INT, CALL_BY_COP,
+                    1, MPI_DOUBLE, CALL_BY_RES,
+                    x_in_bounds, &dimension, &arFunvals[i]);
+#else
         arFunvals[i] = fitfun(x_in_bounds, dimension); /* evaluate */
+#endif
       }
+#if defined(_USE_TORC_)
+      torc_waitall();
+#endif
 
       /* update the search distribution used for cmaes_SampleDistribution() */
       cmaes_UpdateDistribution(&evo, arFunvals);  /* assumes that pop[i] has not been modified */
@@ -90,6 +124,10 @@ int main(int argn, char **args) {
   cmaes_exit(&evo); /* release memory */
   cmaes_boundary_transformation_exit(&boundaries); /* release memory */
   free(x_in_bounds);
+
+#if defined(_USE_TORC_)
+  torc_finalize();
+#endif
 
   return 0;
 }

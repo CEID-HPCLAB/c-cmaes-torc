@@ -29,11 +29,11 @@ double fitfun(double const *x, unsigned long N) { /* function "cigtab" */
 #if defined(_USE_TORC_)
 void taskfun(double *x, unsigned long *pn, double *res)
 {
-    unsigned long n = *pn;
-    double f = fitfun(x, n);
+  unsigned long n = *pn;
+  double f = fitfun(x, n);
 
-    *res = f;
-    return;
+  *res = f;
+  return;
 }
 #endif
 
@@ -51,7 +51,7 @@ int main(int argn, char **args) {
   double upperBounds[] = {3, 2e22};
   int nb_bounds = 1; /* numbers used from lower and upperBounds */
   unsigned long dimension;
-  int i; 
+  int i;
 
   if(argn > 1) /* avoid compiler warning */
     printf("%d argument(s)  %s ... unused\n", argn - 1, args[1]);
@@ -74,7 +74,7 @@ int main(int argn, char **args) {
 
   /* Iterate until stop criterion holds */
   while(!cmaes_TestForTermination(&evo))
-    { 
+    {
       /* generate lambda new search points, sample population */
       pop = cmaes_SamplePopulation(&evo); /* do not change content of pop */
 
@@ -83,7 +83,7 @@ int main(int argn, char **args) {
         cmaes_boundary_transformation(&boundaries, pop[i], x_in_bounds, dimension);
         /* this loop can be omitted if is_feasible is invariably true */
         while(!is_feasible(x_in_bounds, dimension)) { /* is_feasible needs to be user-defined, in case, and can change/repair x */
-            cmaes_ReSampleSingle(&evo, i); 
+            cmaes_ReSampleSingle(&evo, i);
             cmaes_boundary_transformation(&boundaries, pop[i], x_in_bounds, dimension);
         }
 

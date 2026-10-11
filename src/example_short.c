@@ -27,11 +27,11 @@ double fitfun(double const *x, int N) { /* function "cigtab" */
 #if defined(_USE_TORC_)
 void taskfun(double *x, int *pn, double *res)
 {
-    int n = *pn;
-    double f = fitfun(x, n);
+  int n = *pn;
+  double f = fitfun(x, n);
 
-    *res = f;
-    return;
+  *res = f;
+  return;
 }
 #endif
 

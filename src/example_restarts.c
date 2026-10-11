@@ -73,8 +73,8 @@ int main(int argn, char **args)
 	char c;
 	double *x;
 
-    if(argn > 1) /* avoid compiler warning */
-        printf("%d argument(s)  %s ... unused\n", argn - 1, args[1]);
+	if (argn > 1) /* avoid compiler warning */
+		printf("%d argument(s)  %s ... unused\n", argn - 1, args[1]);
 
 
 
@@ -120,7 +120,7 @@ int main(int argn, char **args)
 #if defined(_USE_TORC_)
 	gpFun = rgpFun[nb];
 	torc_register_task(taskfun);
-  	torc_init(argn, args, MODE_MS);
+	torc_init(argn, args, MODE_MS);
 #endif
 
 	/* Optimize function */
@@ -200,17 +200,16 @@ double * optimize(double(*pFun)(double const *), int nrestarts, double incpopsiz
 	         		cmaes_ReSampleSingle(&evo, i); 
 				 */
 #if defined(_USE_TORC_)
-		        int dim = (int) cmaes_Get(&evo, "dim");
+				int dim = (int) cmaes_Get(&evo, "dim");
 				double *p = pop[i] - 1;
-    		    torc_create(-1, taskfun, 3,
-        		            dim+1, MPI_DOUBLE, CALL_BY_VAL,
-            		        1, MPI_INT, CALL_BY_COP,
-                		    1, MPI_DOUBLE, CALL_BY_RES,
-                    		p, &dim, &fitvals[i]);
+				torc_create(-1, taskfun, 3,
+										dim+1, MPI_DOUBLE, CALL_BY_VAL,
+										1, MPI_INT, CALL_BY_COP,
+										1, MPI_DOUBLE, CALL_BY_RES,
+										p, &dim, &fitvals[i]);
 #else
 				fitvals[i] = (*pFun)(pop[i]);
 #endif
-
 			}
 
 #if defined(_USE_TORC_)
